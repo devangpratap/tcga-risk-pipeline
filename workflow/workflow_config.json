@@ -1,0 +1,70 @@
+{
+  "name": "TCGA_Risk_Pipeline_Nightly",
+  "tasks": [
+    {
+      "task_key": "01_ingest_bronze",
+      "notebook_task": {
+        "notebook_path": "/Users/dsingh2024@my.fit.edu/tcga_pipeline/01_ingest_bronze",
+        "source": "WORKSPACE"
+      },
+      "environment_key": "default"
+    },
+    {
+      "task_key": "02_bronze_to_silver",
+      "depends_on": [{"task_key": "01_ingest_bronze"}],
+      "notebook_task": {
+        "notebook_path": "/Users/dsingh2024@my.fit.edu/tcga_pipeline/02_bronze_to_silver",
+        "source": "WORKSPACE"
+      },
+      "environment_key": "default"
+    },
+    {
+      "task_key": "03_silver_to_gold",
+      "depends_on": [{"task_key": "02_bronze_to_silver"}],
+      "notebook_task": {
+        "notebook_path": "/Users/dsingh2024@my.fit.edu/tcga_pipeline/03_silver_to_gold",
+        "source": "WORKSPACE"
+      },
+      "environment_key": "default"
+    },
+    {
+      "task_key": "04_model_inference",
+      "depends_on": [{"task_key": "03_silver_to_gold"}],
+      "notebook_task": {
+        "notebook_path": "/Users/dsingh2024@my.fit.edu/tcga_pipeline/04_model_inference",
+        "source": "WORKSPACE"
+      },
+      "environment_key": "default"
+    },
+    {
+      "task_key": "05_export_dashboard",
+      "depends_on": [{"task_key": "04_model_inference"}],
+      "notebook_task": {
+        "notebook_path": "/Users/dsingh2024@my.fit.edu/tcga_pipeline/05_export_dashboard",
+        "source": "WORKSPACE"
+      },
+      "environment_key": "default"
+    }
+  ],
+  "schedule": {
+    "quartz_cron_expression": "0 0 7 * * ?",
+    "timezone_id": "America/New_York",
+    "pause_status": "PAUSED"
+  },
+  "queue": {
+    "enabled": true
+  },
+  "tags": {
+    "project": "tcga_risk_pipeline",
+    "owner": "dsingh2024"
+  },
+  "environments": [
+    {
+      "environment_key": "default",
+      "spec": {
+        "client": "1",
+        "dependencies": []
+      }
+    }
+  ]
+}
