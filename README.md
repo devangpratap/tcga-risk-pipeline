@@ -12,7 +12,7 @@ Three sources, each in a different format, joined on the TCGA patient barcode (e
 | TCGA-Reports (Mendeley) | Zipped CSV | 9,523 reports | OCR'd and cleaned pathology reports — free text describing tumor characteristics |
 | TCGA-CDR (GDC) | Excel (.xlsx) | 11,160 patients | Clinical outcomes — survival time, vital status, stage, grade, demographics |
 
-After inner-joining all three on patient barcode, 6,242 patients remain. The image embeddings from the Colab step cover 4,935 of those.
+After inner-joining all three on patient barcode, 6,242 patients remain. The image embeddings from the Colab step cover all 7,175 TCGA-UT patients, so every joined patient has embeddings.
 
 ## Pipeline Architecture
 
@@ -38,7 +38,7 @@ Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (featur
 
 ## Image Embeddings (Google Colab)
 
-Serverless Databricks has no GPU, so image feature extraction runs in a separate Colab notebook with a free T4 GPU. It downloads 5 tar shards from HuggingFace containing ~271K histopathology tiles, runs each tile through a pretrained ResNet-18 (with the classification head removed), averages the 512-dim embeddings per patient via mean pooling, and exports a CSV. That CSV gets uploaded to Databricks and joined into the gold feature table. The script is in `colab/image_embeddings.py`.
+Serverless Databricks has no GPU, so image feature extraction runs in a separate Colab notebook with a free T4 GPU. It downloads all 51 tar shards (39 train + 6 valid + 6 test) from HuggingFace containing ~250K histopathology tiles across 7,175 patients, runs each tile through a pretrained ResNet-18 (with the classification head removed), averages the 512-dim embeddings per patient via mean pooling, and exports a CSV. That CSV gets uploaded to Databricks and joined into the gold feature table. The script is in `colab/image_embeddings.py`.
 
 ## The Model
 
@@ -46,11 +46,11 @@ The approach is late fusion — ResNet embeddings from images, TF-IDF vectors fr
 
 | Model | Accuracy | Balanced Accuracy |
 |---|---|---|
-| Logistic Regression | 95.3% | 95.3% |
-| MLP (PyTorch, 3-layer) | 93.9% | 89.6% |
-| Random Forest | 78.5% | 50.3% |
+| Logistic Regression | 94.2% | 93.4% |
+| MLP (PyTorch, 3-layer) | 93.3% | 91.9% |
+| Random Forest | 81.9% | 58.1% |
 
-Logistic regression wins, which honestly isn't surprising — the feature engineering does most of the heavy lifting, and LR handles high-dimensional sparse features (like TF-IDF) well. The MLP is competitive on raw accuracy but struggles more with class balance. Random forest collapses with 734 features and limited samples.
+Logistic regression wins, which honestly isn't surprising — the feature engineering does most of the heavy lifting, and LR handles high-dimensional sparse features (like TF-IDF) well. The MLP is close behind and benefits from the larger dataset. Random forest still struggles with 734 features but improved slightly with more training data.
 
 ## Automation
 

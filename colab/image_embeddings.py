@@ -22,12 +22,19 @@ transform = transforms.Compose([
 print("ResNet-18 loaded")
 
 repo_id = "dakomura/tcga-ut"
-shards = [f"data/dataset_internal_train_part{str(i).zfill(3)}.tar" for i in range(5)]
+shards = []
+for i in range(39):
+    shards.append(f"data/dataset_internal_train_part{str(i).zfill(3)}.tar")
+for i in range(6):
+    shards.append(f"data/dataset_internal_valid_part{str(i).zfill(3)}.tar")
+for i in range(6):
+    shards.append(f"data/dataset_internal_test_part{str(i).zfill(3)}.tar")
+
 os.makedirs("/content/shards", exist_ok=True)
 for s in shards:
     print(f"Downloading {s}...")
     hf_hub_download(repo_id=repo_id, filename=s, repo_type="dataset", local_dir="/content/shards")
-print("Downloads complete.")
+print(f"Downloads complete. Total shards: {len(shards)}")
 
 patient_embeddings = defaultdict(list)
 processed = errors = 0
@@ -46,7 +53,7 @@ for s in shards:
                     emb = resnet(transform(img).unsqueeze(0).to(device)).squeeze().cpu().numpy()
                 patient_embeddings[bp[:12]].append(emb)
                 processed += 1
-                if processed % 5000 == 0: print(f"  {processed} tiles, {len(patient_embeddings)} patients")
+                if processed % 10000 == 0: print(f"  {processed} tiles, {len(patient_embeddings)} patients")
             except: errors += 1
 print(f"\nDone: {processed} tiles, {errors} errors, {len(patient_embeddings)} patients")
 
@@ -57,8 +64,8 @@ for b, el in patient_embeddings.items():
     rows.append(row)
 df = pd.DataFrame(rows)
 print(f"Shape: {df.shape}")
-df.to_csv("/content/patient_image_embeddings.csv", index=False)
-print(f"Saved. Size: {os.path.getsize('/content/patient_image_embeddings.csv')/1024/1024:.1f} MB")
+df.to_csv("/content/patient_image_embeddings_full.csv", index=False)
+print(f"Saved. Size: {os.path.getsize('/content/patient_image_embeddings_full.csv')/1024/1024:.1f} MB")
 
 from google.colab import files
-files.download("/content/patient_image_embeddings.csv")
+files.download("/content/patient_image_embeddings_full.csv")
