@@ -30,7 +30,7 @@ Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (featur
 
 **02_bronze_to_silver.py** is the heaviest notebook. It builds a cancer type mapping table (e.g. BRCA maps to Breast_invasive_carcinoma — COAD and READ both map to Colon_Rectum_adenocarcinoma since they were merged in the TCGA-UT dataset). It inner-joins all three sources on patient barcode, standardizes column names, handles TCGA sentinel values like `[Not Available]`, computes per-patient patch counts and report word counts. It also produces a data quality table tracking join coverage and null rates per cancer type.
 
-**03_silver_to_gold.py** derives risk labels by computing per-cancer-type median overall survival (using only deceased patients so the survival time is fully observed) and labeling patients above/below the median. Censored patients with short follow-up get flagged separately. For feature engineering, it runs TF-IDF on pathology report text (200 features), one-hot encodes clinical categoricals (gender, top-10 cancer types, simplified AJCC stage), scales numericals, and joins in 512-dim ResNet image embeddings from the Colab step. The output is a 734-column feature matrix with zero nulls.
+**03_silver_to_gold.py** derives risk labels by computing per-cancer-type median overall survival (using only deceased patients so the survival time is fully observed) and labeling patients above/below the median. Censored patients with short follow-up get flagged separately. For feature engineering, it runs TF-IDF on pathology report text (200 features), one-hot encodes clinical categoricals (gender, top-10 cancer types, simplified AJCC stage), scales numericals (age, report word count, patch count), and joins in 512-dim ABMIL attention-pooled image embeddings from the Colab step. The output is a feature matrix with zero nulls.
 
 **04_model_inference.py** trains three models on the fused feature vector: logistic regression, random forest, and a 3-layer PyTorch MLP (734 to 256 to 128 to 2). It evaluates each on a held-out test set, picks the winner by balanced accuracy, and saves predictions and per-model metrics to gold tables. The PyTorch install on serverless required upgrading `typing_extensions` and using the CPU-only torch wheel — one of those runtime compatibility issues you just have to work through.
 
@@ -38,19 +38,23 @@ Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (featur
 
 ## Image Embeddings (Google Colab)
 
-Serverless Databricks has no GPU, so image feature extraction runs in a separate Colab notebook with a free T4 GPU. It downloads all 51 tar shards (39 train + 6 valid + 6 test) from HuggingFace containing ~250K histopathology tiles across 7,175 patients, runs each tile through a pretrained ResNet-18 (with the classification head removed), averages the 512-dim embeddings per patient via mean pooling, and exports a CSV. That CSV gets uploaded to Databricks and joined into the gold feature table. The script is in `colab/image_embeddings.py`.
+Serverless Databricks has no GPU, so image feature extraction and aggregation run in a separate Colab notebook with a free T4 GPU. It downloads all 51 tar shards (39 train + 6 valid + 6 test) from HuggingFace containing ~250K histopathology tiles across 7,175 patients, runs each tile through a pretrained ResNet-18 (with the classification head removed), and saves per-patient patch-level embeddings to disk.
+
+Instead of naive mean pooling, the script trains a **Gated Attention MIL** (Multiple Instance Learning) network that learns which patches are most informative for each patient. The attention mechanism assigns per-patch weights — so a patient with 90% benign tissue and 10% aggressive tumor gets a representation dominated by the tumor patches, not washed out by the background. The trained model outputs a single 512-dim attention-pooled vector per patient.
+
+Risk labels are derived directly in Colab from the TCGA-CDR clinical data (per-cancer-type median OS among deceased patients) so the script is self-contained. The exported CSV gets uploaded to Databricks and joined into the gold feature table. The script is in `colab/image_embeddings.py`.
 
 ## The Model
 
-The approach is late fusion — ResNet embeddings from images, TF-IDF vectors from pathology text, and one-hot encoded clinical fields all get concatenated into a single 734-dim feature vector per patient. Three classifiers are compared on a held-out test set:
+The approach is late fusion — ABMIL attention-pooled image embeddings, TF-IDF vectors from pathology text, and one-hot encoded clinical fields all get concatenated into a single feature vector per patient. Three classifiers are compared on a held-out test set:
 
 | Model | Accuracy | Balanced Accuracy |
 |---|---|---|
-| Logistic Regression | 94.2% | 93.4% |
-| MLP (PyTorch, 3-layer) | 93.3% | 91.9% |
-| Random Forest | 81.9% | 58.1% |
+| Logistic Regression | TBD | TBD |
+| MLP (PyTorch, 3-layer) | TBD | TBD |
+| Random Forest | TBD | TBD |
 
-Logistic regression wins, which honestly isn't surprising — the feature engineering does most of the heavy lifting, and LR handles high-dimensional sparse features (like TF-IDF) well. The MLP is close behind and benefits from the larger dataset. Random forest still struggles with 734 features but improved slightly with more training data.
+*Results pending rerun after fixing data leakage (survival time was previously included as a feature) and upgrading from mean pooling to attention-based MIL.*
 
 ## Automation
 
@@ -66,7 +70,7 @@ Databricks Genie is also set up for natural language queries against the gold ta
 
 - **Databricks** — serverless compute, Unity Catalog, Delta Lake, Workflows
 - **Python** — pandas, PySpark, scikit-learn, PyTorch
-- **Google Colab** — ResNet-18 inference on T4 GPU
+- **Google Colab** — ResNet-18 feature extraction + ABMIL training on T4 GPU
 - **PowerBI** — live dashboard via SQL Warehouse connector
 - **Databricks CLI** — notebook deployment, file uploads to Volumes
 

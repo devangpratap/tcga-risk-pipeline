@@ -188,7 +188,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 # ------------------------------------------------------------------
 # 2a. Numerical features
 # ------------------------------------------------------------------
-num_cols = ["age", "os_days", "report_word_count", "patch_count"]
+num_cols = ["age", "report_word_count", "patch_count"]
 
 imputer = SimpleImputer(strategy="median")
 scaler = StandardScaler()
@@ -345,7 +345,7 @@ for c in emb_cols:
     metadata_rows.append({
         "feature_name": c,
         "feature_type": "image_embedding",
-        "description": f"Pre-computed image embedding dimension {c.replace('img_emb_', '')}"
+        "description": f"ABMIL attention-pooled image embedding dimension {c.replace('img_emb_', '')}"
     })
 
 df_meta = pd.DataFrame(metadata_rows)

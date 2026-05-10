@@ -140,23 +140,23 @@ dash_model_performance = (
             F.first(F.when(F.col("metric_name") == "balanced_accuracy", F.col("metric_value"))), 4
         ).alias("balanced_accuracy"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "precision_high",    F.col("metric_value"))), 4
-        ).alias("precision_high"),
+            F.first(F.when(F.col("metric_name") == "precision_high_risk",    F.col("metric_value"))), 4
+        ).alias("precision_high_risk"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "recall_high",       F.col("metric_value"))), 4
-        ).alias("recall_high"),
+            F.first(F.when(F.col("metric_name") == "recall_high_risk",       F.col("metric_value"))), 4
+        ).alias("recall_high_risk"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "f1_high",           F.col("metric_value"))), 4
-        ).alias("f1_high"),
+            F.first(F.when(F.col("metric_name") == "f1_high_risk",           F.col("metric_value"))), 4
+        ).alias("f1_high_risk"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "precision_low",     F.col("metric_value"))), 4
-        ).alias("precision_low"),
+            F.first(F.when(F.col("metric_name") == "precision_low_risk",     F.col("metric_value"))), 4
+        ).alias("precision_low_risk"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "recall_low",        F.col("metric_value"))), 4
-        ).alias("recall_low"),
+            F.first(F.when(F.col("metric_name") == "recall_low_risk",        F.col("metric_value"))), 4
+        ).alias("recall_low_risk"),
         F.round(
-            F.first(F.when(F.col("metric_name") == "f1_low",            F.col("metric_value"))), 4
-        ).alias("f1_low"),
+            F.first(F.when(F.col("metric_name") == "f1_low_risk",            F.col("metric_value"))), 4
+        ).alias("f1_low_risk"),
     )
     .orderBy("model_name")
 )
