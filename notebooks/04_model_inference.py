@@ -14,7 +14,7 @@
 
 # COMMAND ----------
 
-# MAGIC %pip install scikit-learn -q
+# MAGIC %pip install scikit-learn lightgbm -q
 
 # COMMAND ----------
 
@@ -28,6 +28,7 @@ from datetime import datetime
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from lightgbm import LGBMClassifier
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -52,9 +53,9 @@ print("Loading patient_features from workspace.tcga_gold.patient_features ...")
 features_df = spark.table("workspace.tcga_gold.patient_features").toPandas()
 print(f"  Raw rows: {len(features_df):,}")
 
-# Drop censored patients — they carry no usable risk label
-features_df = features_df[features_df["risk_label"] != "censored"].reset_index(drop=True)
-print(f"  After removing censored: {len(features_df):,}")
+# Drop ambiguous patients (middle tertile) — no clear risk label
+features_df = features_df[features_df["risk_label"].isin(["high_risk", "low_risk"])].reset_index(drop=True)
+print(f"  After removing ambiguous: {len(features_df):,}")
 
 # COMMAND ----------
 
@@ -125,10 +126,20 @@ print("  LogisticRegression training complete.")
 
 # COMMAND ----------
 
-print("Training RandomForestClassifier ...")
-rf_model = RandomForestClassifier(n_estimators=200, class_weight="balanced", random_state=42)
-rf_model.fit(X_train, y_train)
-print("  RandomForestClassifier training complete.")
+print("Training LightGBM ...")
+# Compute scale_pos_weight for class imbalance
+n_neg = (y_train == 0).sum()
+n_pos = (y_train == 1).sum()
+lgbm_model = LGBMClassifier(
+    n_estimators=300,
+    max_depth=6,
+    learning_rate=0.05,
+    scale_pos_weight=n_neg / n_pos,
+    random_state=42,
+    verbose=-1,
+)
+lgbm_model.fit(X_train, y_train)
+print("  LightGBM training complete.")
 
 # COMMAND ----------
 
@@ -137,18 +148,20 @@ print("  RandomForestClassifier training complete.")
 
 # COMMAND ----------
 
-# Define the MLP
+# Define the MLP — sized for ~100 features
 class RiskMLP(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(input_dim, 256),
+            nn.Linear(input_dim, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
+            nn.Dropout(0.4),
+            nn.Linear(64, 32),
+            nn.BatchNorm1d(32),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, 2),
+            nn.Dropout(0.4),
+            nn.Linear(32, 2),
         )
 
     def forward(self, x):
@@ -164,7 +177,7 @@ X_test_t  = torch.tensor(X_test.values, dtype=torch.float32)
 y_test_t  = torch.tensor(y_test.values, dtype=torch.long)
 
 train_dataset = TensorDataset(X_train_t, y_train_t)
-train_loader  = DataLoader(train_dataset, batch_size=64, shuffle=True)
+train_loader  = DataLoader(train_dataset, batch_size=32, shuffle=True)
 
 # Handle class imbalance with weighted loss
 class_counts = np.bincount(y_train.values)
@@ -174,12 +187,12 @@ class_weights = torch.tensor(
 class_weights = class_weights / class_weights.sum() * 2  # normalize
 
 mlp_model = RiskMLP(input_dim).to(device)
-optimizer = torch.optim.Adam(mlp_model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(mlp_model.parameters(), lr=0.0005, weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
 
 # Train
-print(f"Training PyTorch MLP (input={input_dim} → 256 → 128 → 2) for 50 epochs ...")
-for epoch in range(50):
+print(f"Training PyTorch MLP (input={input_dim} → 64 → 32 → 2) for 100 epochs ...")
+for epoch in range(100):
     mlp_model.train()
     epoch_loss = 0.0
     for X_batch, y_batch in train_loader:
@@ -190,9 +203,9 @@ for epoch in range(50):
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item() * len(y_batch)
-    if (epoch + 1) % 10 == 0:
+    if (epoch + 1) % 20 == 0:
         avg_loss = epoch_loss / len(train_dataset)
-        print(f"  Epoch {epoch+1:>2}/50  loss={avg_loss:.4f}")
+        print(f"  Epoch {epoch+1:>3}/100  loss={avg_loss:.4f}")
 
 mlp_model.eval()
 print("  MLP training complete.")
@@ -295,14 +308,14 @@ lr_test_metrics = evaluate_model(
 
 # COMMAND ----------
 
-print("Evaluating RandomForestClassifier on train set ...")
-rf_train_metrics = evaluate_model(
-    rf_model, "RandomForestClassifier", X_train, y_train, "train"
+print("Evaluating LightGBM on train set ...")
+lgbm_train_metrics = evaluate_model(
+    lgbm_model, "LightGBM", X_train, y_train, "train"
 )
 
-print("\nEvaluating RandomForestClassifier on test set ...")
-rf_test_metrics = evaluate_model(
-    rf_model, "RandomForestClassifier", X_test, y_test, "test",
+print("\nEvaluating LightGBM on test set ...")
+lgbm_test_metrics = evaluate_model(
+    lgbm_model, "LightGBM", X_test, y_test, "test",
     cancer_type_series=test_df["cancer_type_abbrev"]
 )
 
@@ -329,12 +342,12 @@ mlp_test_metrics = evaluate_model(
 # Pick better model by balanced_accuracy on test set
 all_test_metrics = {
     "LogisticRegression": lr_test_metrics,
-    "RandomForestClassifier": rf_test_metrics,
+    "LightGBM": lgbm_test_metrics,
     "MLP_3Layer": mlp_test_metrics,
 }
 all_models = {
     "LogisticRegression": lr_model,
-    "RandomForestClassifier": rf_model,
+    "LightGBM": lgbm_model,
     "MLP_3Layer": mlp_wrapper,
 }
 
@@ -432,11 +445,121 @@ def metrics_to_rows(metrics_dict, model_name, split_label, run_timestamp):
 all_metrics_rows = (
     metrics_to_rows(lr_train_metrics,   "LogisticRegression",     "train", run_ts) +
     metrics_to_rows(lr_test_metrics,    "LogisticRegression",     "test",  run_ts) +
-    metrics_to_rows(rf_train_metrics,   "RandomForestClassifier", "train", run_ts) +
-    metrics_to_rows(rf_test_metrics,    "RandomForestClassifier", "test",  run_ts) +
+    metrics_to_rows(lgbm_train_metrics,  "LightGBM",              "train", run_ts) +
+    metrics_to_rows(lgbm_test_metrics,   "LightGBM",              "test",  run_ts) +
     metrics_to_rows(mlp_train_metrics,  "MLP_3Layer",             "train", run_ts) +
     metrics_to_rows(mlp_test_metrics,   "MLP_3Layer",             "test",  run_ts)
 )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # ### Section 5b — Cancer-Specific Models
+# MAGIC # Train dedicated LightGBM models for individual cancer types with enough samples.
+
+# COMMAND ----------
+
+from sklearn.model_selection import train_test_split as sk_split
+
+CANCER_SPECIFIC_TYPES = ["GBM", "LUSC", "HNSC", "KIRC", "LUAD", "BLCA"]
+MIN_SAMPLES = 50
+
+per_type_preds_list = []
+
+print("=" * 60)
+print("CANCER-SPECIFIC MODELS")
+print("=" * 60)
+
+for ct in CANCER_SPECIFIC_TYPES:
+    ct_mask = merged_df["cancer_type_abbrev"] == ct
+    ct_data = merged_df[ct_mask].reset_index(drop=True)
+
+    if len(ct_data) < MIN_SAMPLES:
+        print(f"\n  {ct}: skipped ({len(ct_data)} samples < {MIN_SAMPLES})")
+        continue
+
+    ct_X = ct_data[feature_cols].astype(float)
+    ct_y = ct_data["risk_label"].map(label_map)
+
+    # Stratified 80/20 split within this cancer type
+    try:
+        ct_X_train, ct_X_test, ct_y_train, ct_y_test, ct_train_idx, ct_test_idx = sk_split(
+            ct_X, ct_y, ct_data.index, test_size=0.2, random_state=42, stratify=ct_y
+        )
+    except ValueError:
+        print(f"\n  {ct}: skipped (can't stratify — too few in one class)")
+        continue
+
+    ct_test_df = ct_data.loc[ct_test_idx]
+
+    # Class weight
+    ct_n_neg = (ct_y_train == 0).sum()
+    ct_n_pos = (ct_y_train == 1).sum()
+    if ct_n_pos == 0 or ct_n_neg == 0:
+        print(f"\n  {ct}: skipped (single class in train set)")
+        continue
+
+    ct_model = LGBMClassifier(
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        scale_pos_weight=ct_n_neg / ct_n_pos,
+        random_state=42,
+        verbose=-1,
+    )
+    ct_model.fit(ct_X_train, ct_y_train)
+
+    ct_preds = ct_model.predict(ct_X_test)
+    ct_acc = accuracy_score(ct_y_test, ct_preds)
+    ct_bal_acc = balanced_accuracy_score(ct_y_test, ct_preds)
+    ct_report = classification_report(ct_y_test, ct_preds, target_names=["low_risk", "high_risk"], output_dict=True)
+
+    print(f"\n  {ct} (n_train={len(ct_X_train)}, n_test={len(ct_X_test)}):")
+    print(f"    Accuracy          : {ct_acc:.4f}")
+    print(f"    Balanced Accuracy : {ct_bal_acc:.4f}")
+    print(f"    Confusion Matrix  : {confusion_matrix(ct_y_test, ct_preds).tolist()}")
+
+    ct_metrics = {
+        "accuracy": ct_acc,
+        "balanced_accuracy": ct_bal_acc,
+        "precision_high_risk": ct_report["high_risk"]["precision"],
+        "recall_high_risk": ct_report["high_risk"]["recall"],
+        "f1_high_risk": ct_report["high_risk"]["f1-score"],
+        "precision_low_risk": ct_report["low_risk"]["precision"],
+        "recall_low_risk": ct_report["low_risk"]["recall"],
+        "f1_low_risk": ct_report["low_risk"]["f1-score"],
+    }
+
+    model_name = f"LightGBM_{ct}"
+    all_metrics_rows += metrics_to_rows(ct_metrics, model_name, "test", run_ts)
+
+    # Build predictions for this cancer type
+    ct_proba = ct_model.predict_proba(ct_X_test)
+    inv_label = {1: "high_risk", 0: "low_risk"}
+    ct_class_idx = {cls: i for i, cls in enumerate(ct_model.classes_)}
+    ct_confidence = np.array([ct_proba[i, ct_class_idx[p]] for i, p in enumerate(ct_preds)])
+
+    ct_pred_df = pd.DataFrame({
+        "patient_barcode": ct_test_df["patient_barcode"].values,
+        "cancer_type": ct,
+        "true_label": ct_y_test.map(inv_label).values,
+        "predicted_label": [inv_label[p] for p in ct_preds],
+        "prediction_confidence": ct_confidence,
+        "model_name": model_name,
+        "split": "test",
+    })
+    per_type_preds_list.append(ct_pred_df)
+
+print("\n" + "=" * 60)
+print("Cancer-specific models complete.")
+
+# COMMAND ----------
+
+# Append per-type predictions to all_preds
+if per_type_preds_list:
+    per_type_preds_pd = pd.concat(per_type_preds_list, ignore_index=True)
+    all_preds_pd = pd.concat([all_preds_pd, per_type_preds_pd], ignore_index=True)
+    print(f"Added {len(per_type_preds_pd)} cancer-specific predictions. Total: {len(all_preds_pd)}")
 
 all_metrics_pd = pd.DataFrame(all_metrics_rows)
 print(f"Metrics rows to write: {len(all_metrics_pd):,}")

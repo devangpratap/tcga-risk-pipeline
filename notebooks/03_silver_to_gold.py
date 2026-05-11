@@ -57,13 +57,13 @@ print(f"workspace.tcga_bronze.image_embeddings: {df_emb.count()} rows, {len(df_e
 # MAGIC %md
 # MAGIC ## Section 1 — Risk Label Derivation
 # MAGIC
-# MAGIC For each cancer type we compute the **median `os_days`** using only patients where `os_event = 1`
-# MAGIC (i.e., patients who died, so their survival time is fully observed).
+# MAGIC For each cancer type we compute the **33rd and 67th percentile of `os_days`** using only deceased patients.
+# MAGIC Tertile split gives cleaner class separation than a median cut — patients near the boundary are dropped.
 # MAGIC
 # MAGIC Labels:
-# MAGIC - `high_risk`  — `os_event = 1` AND `os_days < median`
-# MAGIC - `low_risk`   — `os_days >= median` (regardless of event status)
-# MAGIC - `censored`   — `os_event = 0` AND `os_days < median`
+# MAGIC - `high_risk`  — `os_event = 1` AND `os_days < p33` (bottom third, died quickly)
+# MAGIC - `low_risk`   — `os_days >= p67` (top third, long survivors)
+# MAGIC - `ambiguous`  — everyone in the middle third (dropped from training)
 
 # COMMAND ----------
 
@@ -73,36 +73,37 @@ silver.printSchema()
 
 # COMMAND ----------
 
-# Compute per-cancer-type median os_days using only deceased patients (os_event = 1)
+# Compute per-cancer-type tertile thresholds using only deceased patients (os_event = 1)
 deceased = silver.filter(F.col("os_event") == 1)
 
-median_os = (
+tertiles = (
     deceased
     .groupBy("cancer_type")
     .agg(
-        F.percentile_approx("os_days", 0.5).alias("median_os_for_type")
+        F.percentile_approx("os_days", 0.33).alias("p33_os"),
+        F.percentile_approx("os_days", 0.67).alias("p67_os"),
     )
 )
 
-print("Median OS per cancer type (deceased patients only):")
-median_os.orderBy("cancer_type").show(40, truncate=False)
+print("OS tertile thresholds per cancer type (deceased patients only):")
+tertiles.orderBy("cancer_type").show(40, truncate=False)
 
 # COMMAND ----------
 
-# Join median back to full patient table
-patients_with_median = silver.join(median_os, on="cancer_type", how="left")
+# Join tertiles back to full patient table
+patients_with_tertiles = silver.join(tertiles, on="cancer_type", how="left")
 
-# Derive risk label
-risk_labels = patients_with_median.withColumn(
+# Derive risk label using tertile split
+risk_labels = patients_with_tertiles.withColumn(
     "risk_label",
     F.when(
-        (F.col("os_event") == 1) & (F.col("os_days") < F.col("median_os_for_type")),
+        (F.col("os_event") == 1) & (F.col("os_days") < F.col("p33_os")),
         F.lit("high_risk")
     ).when(
-        F.col("os_days") >= F.col("median_os_for_type"),
+        F.col("os_days") >= F.col("p67_os"),
         F.lit("low_risk")
     ).otherwise(
-        F.lit("censored")
+        F.lit("ambiguous")
     )
 ).select(
     "patient_barcode",
@@ -110,7 +111,8 @@ risk_labels = patients_with_median.withColumn(
     "cancer_type_abbrev",
     "os_days",
     "os_event",
-    "median_os_for_type",
+    "p33_os",
+    "p67_os",
     "risk_label"
 )
 
@@ -184,6 +186,7 @@ print(f"After inner join with image embeddings: {len(df):,} rows (dropped {befor
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import PCA
 
 # ------------------------------------------------------------------
 # 2a. Numerical features
@@ -265,10 +268,15 @@ report_text_filled = df["report_text"].fillna("")
 
 tfidf = TfidfVectorizer(max_features=200, sublinear_tf=True, min_df=2)
 tfidf_array = tfidf.fit_transform(report_text_filled).toarray()
-tfidf_feature_names = [f"tfidf_{t}" for t in tfidf.get_feature_names_out()]
+
+# PCA: 200 TF-IDF features → 30 components
+pca_tfidf = PCA(n_components=30, random_state=42)
+tfidf_pca = pca_tfidf.fit_transform(tfidf_array)
+tfidf_feature_names = [f"tfidf_pc_{i}" for i in range(30)]
+print(f"TF-IDF PCA: {tfidf_array.shape[1]} → {tfidf_pca.shape[1]} (variance retained: {pca_tfidf.explained_variance_ratio_.sum():.2%})")
 
 df_tfidf = pd.DataFrame(
-    tfidf_array,
+    tfidf_pca,
     columns=tfidf_feature_names,
     index=df.index
 )
@@ -276,9 +284,16 @@ df_tfidf = pd.DataFrame(
 print(f"TF-IDF features shape: {df_tfidf.shape}")
 
 # ------------------------------------------------------------------
-# 2d. Image embeddings (512-dim, pre-computed, already joined above)
+# 2d. Image embeddings — PCA 512 → 50
 # ------------------------------------------------------------------
-df_image_emb = df[emb_cols].reset_index(drop=True)
+emb_array = df[emb_cols].values
+
+pca_img = PCA(n_components=50, random_state=42)
+emb_pca = pca_img.fit_transform(emb_array)
+emb_pca_names = [f"img_pc_{i}" for i in range(50)]
+print(f"Image PCA: {emb_array.shape[1]} → {emb_pca.shape[1]} (variance retained: {pca_img.explained_variance_ratio_.sum():.2%})")
+
+df_image_emb = pd.DataFrame(emb_pca, columns=emb_pca_names, index=df.index).reset_index(drop=True)
 print(f"Image embedding features shape: {df_image_emb.shape}")
 
 # COMMAND ----------
@@ -334,18 +349,17 @@ for c in cat_feature_names:
     })
 
 for t in tfidf_feature_names:
-    token = t.replace("tfidf_", "")
     metadata_rows.append({
         "feature_name": t,
-        "feature_type": "tfidf",
-        "description": f"TF-IDF sublinear weight for token '{token}' (max_features=200)"
+        "feature_type": "tfidf_pca",
+        "description": f"PCA component {t.replace('tfidf_pc_', '')} of TF-IDF (200 → 30)"
     })
 
-for c in emb_cols:
+for c in emb_pca_names:
     metadata_rows.append({
         "feature_name": c,
-        "feature_type": "image_embedding",
-        "description": f"ABMIL attention-pooled image embedding dimension {c.replace('img_emb_', '')}"
+        "feature_type": "image_pca",
+        "description": f"PCA component {c.replace('img_pc_', '')} of ABMIL attention-pooled embeddings (512 → 50)"
     })
 
 df_meta = pd.DataFrame(metadata_rows)
@@ -386,7 +400,7 @@ print("\n[2] Risk label distribution (censored excluded):")
 for label, cnt in dist.items():
     pct = cnt / len(labeled) * 100
     print(f"    {label:<12} : {cnt:>5,}  ({pct:.1f}%)")
-print(f"    {'censored':<12} : {(df_features['risk_label'] == 'censored').sum():>5,}  (excluded from model)")
+print(f"    {'ambiguous':<12} : {(df_features['risk_label'] == 'ambiguous').sum():>5,}  (middle tertile, excluded from model)")
 
 # COMMAND ----------
 

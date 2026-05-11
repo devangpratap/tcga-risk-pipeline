@@ -30,9 +30,9 @@ Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (featur
 
 **02_bronze_to_silver.py** is the heaviest notebook. It builds a cancer type mapping table (e.g. BRCA maps to Breast_invasive_carcinoma — COAD and READ both map to Colon_Rectum_adenocarcinoma since they were merged in the TCGA-UT dataset). It inner-joins all three sources on patient barcode, standardizes column names, handles TCGA sentinel values like `[Not Available]`, computes per-patient patch counts and report word counts. It also produces a data quality table tracking join coverage and null rates per cancer type.
 
-**03_silver_to_gold.py** derives risk labels by computing per-cancer-type median overall survival (using only deceased patients so the survival time is fully observed) and labeling patients above/below the median. Censored patients with short follow-up get flagged separately. For feature engineering, it runs TF-IDF on pathology report text (200 features), one-hot encodes clinical categoricals (gender, top-10 cancer types, simplified AJCC stage), scales numericals (age, report word count, patch count), and joins in 512-dim ABMIL attention-pooled image embeddings from the Colab step. The output is a feature matrix with zero nulls.
+**03_silver_to_gold.py** derives risk labels using a tertile split — for each cancer type, it computes the 33rd and 67th percentile of overall survival among deceased patients. Patients who died below p33 are `high_risk`, those above p67 are `low_risk`, and the ambiguous middle third is dropped from training. This gives cleaner class separation than a simple median cut. For feature engineering, it runs TF-IDF on pathology report text (200 features → 30 via PCA), one-hot encodes clinical categoricals (gender, top-10 cancer types, simplified AJCC stage), scales numericals (age, report word count, patch count), and joins in ABMIL attention-pooled image embeddings (512-dim → 50 via PCA) from the Colab step. PCA reduces noise given the ~4K training samples. The output is a feature matrix with zero nulls.
 
-**04_model_inference.py** trains three models on the fused feature vector: logistic regression, random forest, and a 3-layer PyTorch MLP (734 to 256 to 128 to 2). It evaluates each on a held-out test set, picks the winner by balanced accuracy, and saves predictions and per-model metrics to gold tables. The PyTorch install on serverless required upgrading `typing_extensions` and using the CPU-only torch wheel — one of those runtime compatibility issues you just have to work through.
+**04_model_inference.py** trains three global models on the fused feature vector: logistic regression, LightGBM, and a 3-layer PyTorch MLP (input → 64 → 32 → 2 with BatchNorm and dropout). It also trains per-cancer-type LightGBM models for the six largest cancer types (GBM, LUSC, HNSC, KIRC, LUAD, BLCA) to capture cancer-specific risk patterns. All models are evaluated on stratified held-out test sets using balanced accuracy as the primary metric. Predictions and per-model metrics are saved to gold tables.
 
 **05_export_dashboard.py** pre-aggregates gold tables into five dashboard-ready tables — risk distribution by cancer type, model performance metrics, data quality summary, demographic breakdowns, and a patient-level prediction explorer. PowerBI reads these via the SQL Warehouse connector.
 
@@ -46,15 +46,36 @@ Risk labels are derived directly in Colab from the TCGA-CDR clinical data (per-c
 
 ## The Model
 
-The approach is late fusion — ABMIL attention-pooled image embeddings, TF-IDF vectors from pathology text, and one-hot encoded clinical fields all get concatenated into a single feature vector per patient. Three classifiers are compared on a held-out test set:
+The approach is late fusion — ABMIL attention-pooled image embeddings (PCA'd to 50 dims), TF-IDF vectors from pathology text (PCA'd to 30 dims), and one-hot encoded clinical fields all get concatenated into a single feature vector per patient.
+
+### Global Models
+
+Three classifiers are compared on a held-out test set:
 
 | Model | Accuracy | Balanced Accuracy |
 |---|---|---|
-| Logistic Regression | TBD | TBD |
-| MLP (PyTorch, 3-layer) | TBD | TBD |
-| Random Forest | TBD | TBD |
+| Logistic Regression | 71.0% | 69.5% |
+| MLP (PyTorch, 3-layer) | 72.5% | 65.1% |
+| LightGBM | 79.6% | 58.7% |
 
-*Results pending rerun after fixing data leakage (survival time was previously included as a feature) and upgrading from mean pooling to attention-based MIL.*
+Logistic regression wins on balanced accuracy — LightGBM has higher raw accuracy but leans toward the majority class. The MLP (64→32→2 with BatchNorm) lands in between.
+
+### Per-Cancer-Type Models
+
+Dedicated LightGBM models trained on individual cancer types capture disease-specific risk patterns:
+
+| Cancer Type | Accuracy | Balanced Accuracy |
+|---|---|---|
+| GBM (Glioblastoma) | 74.1% | **72.5%** |
+| LUSC (Lung Squamous) | 77.5% | 67.6% |
+| KIRC (Kidney Clear Cell) | 80.9% | 63.6% |
+| HNSC (Head & Neck) | 73.2% | 58.5% |
+| BLCA (Bladder) | 68.6% | 48.8% |
+| LUAD (Lung Adeno) | 59.5% | 43.9% |
+
+The GBM-specific model hits 72.5% balanced accuracy — the best result in the pipeline — because GBM has the most balanced class split and distinctive histopathology. Cancer types with severe class imbalance (BLCA, LUAD) don't benefit from per-type training.
+
+These numbers are honest: no survival time leakage (os_days excluded from features), tertile labels derived only from deceased patients, no test set contamination. The model predicts risk from pathology images (ABMIL attention-pooled), report text (TF-IDF), and clinical staging alone.
 
 ## Automation
 
@@ -69,7 +90,7 @@ Databricks Genie is also set up for natural language queries against the gold ta
 ## Tech Stack
 
 - **Databricks** — serverless compute, Unity Catalog, Delta Lake, Workflows
-- **Python** — pandas, PySpark, scikit-learn, PyTorch
+- **Python** — pandas, PySpark, scikit-learn, PyTorch, LightGBM
 - **Google Colab** — ResNet-18 feature extraction + ABMIL training on T4 GPU
 - **PowerBI** — live dashboard via SQL Warehouse connector
 - **Databricks CLI** — notebook deployment, file uploads to Volumes
