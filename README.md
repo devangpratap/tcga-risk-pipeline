@@ -1,6 +1,6 @@
 # TCGA Multimodal Cancer Risk Prediction Pipeline
 
-An end-to-end data engineering pipeline that ingests cancer patient data from three separate sources — histopathology images, free-text pathology reports, and clinical survival records — cleans and joins them using medallion architecture on Databricks, extracts features from each modality, and trains a multimodal model to predict patient risk. The pipeline runs nightly on a schedule, and results feed a live PowerBI dashboard. Built as a demo for the Applied AI & Data Engineering lab at Florida Institute of Technology.
+An end-to-end data engineering pipeline that ingests cancer patient data from three separate sources — histopathology images, free-text pathology reports, and clinical survival records — cleans and joins them using medallion architecture on Databricks, extracts features from each modality, and trains a multimodal model to predict patient risk. Results are visualized in an interactive Streamlit dashboard. Built as a demo for the Applied AI & Data Engineering lab at Florida Institute of Technology.
 
 ## Data Sources
 
@@ -19,7 +19,7 @@ After inner-joining all three on patient barcode, 6,242 patients remain. The ima
 The pipeline follows medallion architecture — bronze holds raw data exactly as ingested, silver is where the cleaning and joining happens, and gold contains the feature-engineered tables ready for the model and dashboard. Each layer is stored as Delta tables in Databricks Unity Catalog.
 
 ```
-Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (features, risk labels) --> Model --> Dashboard
+Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (features, risk labels) --> Model --> Streamlit Dashboard
 ```
 
 ## What Each Notebook Does
@@ -34,7 +34,20 @@ Raw Sources --> Bronze (untouched) --> Silver (cleaned, joined) --> Gold (featur
 
 **04_model_inference.py** trains three global models on the fused feature vector: logistic regression, LightGBM, and a 3-layer PyTorch MLP (input → 64 → 32 → 2 with BatchNorm and dropout). It also trains per-cancer-type LightGBM models for the six largest cancer types (GBM, LUSC, HNSC, KIRC, LUAD, BLCA) to capture cancer-specific risk patterns. All models are evaluated on stratified held-out test sets using balanced accuracy as the primary metric. Predictions and per-model metrics are saved to gold tables.
 
-**05_export_dashboard.py** pre-aggregates gold tables into five dashboard-ready tables — risk distribution by cancer type, model performance metrics, data quality summary, demographic breakdowns, and a patient-level prediction explorer. PowerBI reads these via the SQL Warehouse connector.
+**05_export_dashboard.py** pre-aggregates gold tables into five dashboard-ready tables — risk distribution by cancer type, model performance metrics, data quality summary, demographic breakdowns, and a patient-level prediction explorer. These tables are exported as CSVs to feed the Streamlit dashboard.
+
+## Streamlit Dashboard
+
+The dashboard (`app/streamlit_app.py`) reads six exported CSVs from the pipeline and provides three interactive views:
+
+- **Patient Explorer** — select any patient barcode to see their risk label, clinical profile, per-model predictions with confidence scores, and a radar chart of their feature profile (age, report length, patch count, image/text PCA components)
+- **Cohort Analytics** — risk distribution by cancer type, overall survival histograms, AJCC stage breakdown, age distribution by risk group, model performance heatmap across all metrics, and a 3D scatter of image + text embedding space
+- **Pipeline** — visual overview of the medallion architecture, feature composition pie chart, and data quality summary
+
+Run with:
+```bash
+cd app && pip install -r requirements.txt && streamlit run streamlit_app.py
+```
 
 ## Image Embeddings (Google Colab)
 
@@ -79,20 +92,14 @@ These numbers are honest: no survival time leakage (os_days excluded from featur
 
 ## Automation
 
-The pipeline is orchestrated as a Databricks Workflow — a DAG of five notebook tasks that run in sequence. Scheduled for 2 AM EST nightly, though it ships paused by default so it doesn't burn credits. If any step fails, downstream tasks don't execute. The workflow config is in `workflow/workflow_config.json` and was deployed via `databricks jobs create`.
-
-## Dashboard
-
-PowerBI connects to the Databricks SQL Warehouse via the native connector. Five gold tables feed the dashboard: risk distribution by cancer type, model performance metrics, data quality summary, demographic breakdowns, and a patient-level prediction explorer. The connection is live — when the pipeline runs, the dashboard updates automatically.
-
-Databricks Genie is also set up for natural language queries against the gold tables.
+The pipeline is orchestrated as a Databricks Workflow — a DAG of five notebook tasks that run in sequence. Scheduled for 7 AM EST daily, though it ships paused by default so it doesn't burn credits. If any step fails, downstream tasks don't execute. The workflow config is in `workflow/workflow_config.json` and was deployed via `databricks jobs create`.
 
 ## Tech Stack
 
 - **Databricks** — serverless compute, Unity Catalog, Delta Lake, Workflows
 - **Python** — pandas, PySpark, scikit-learn, PyTorch, LightGBM
 - **Google Colab** — ResNet-18 feature extraction + ABMIL training on T4 GPU
-- **PowerBI** — live dashboard via SQL Warehouse connector
+- **Streamlit** — interactive dashboard with Plotly visualizations
 - **Databricks CLI** — notebook deployment, file uploads to Volumes
 
 ## Repo Structure
@@ -109,6 +116,16 @@ tcga-risk-pipeline/
 │   └── 05_export_dashboard.py
 ├── colab/
 │   └── image_embeddings.py
+├── app/
+│   ├── streamlit_app.py
+│   ├── requirements.txt
+│   └── data/
+│       ├── patient_features.csv
+│       ├── risk_labels.csv
+│       ├── model_metrics.csv
+│       ├── model_predictions.csv
+│       ├── feature_metadata.csv
+│       └── data_quality.csv
 └── workflow/
     └── workflow_config.json
 ```
