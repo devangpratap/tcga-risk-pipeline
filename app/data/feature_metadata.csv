@@ -1,0 +1,102 @@
+feature_name,feature_type,description
+num_age,numerical,Median-imputed and standard-scaled 'age'
+num_report_word_count,numerical,Median-imputed and standard-scaled 'report_word_count'
+num_patch_count,numerical,Median-imputed and standard-scaled 'patch_count'
+gender_clean_FEMALE,categorical,One-hot encoded categorical feature: gender_clean_FEMALE
+gender_clean_MALE,categorical,One-hot encoded categorical feature: gender_clean_MALE
+cancer_type_abbrev_grouped_BLCA,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_BLCA
+cancer_type_abbrev_grouped_BRCA,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_BRCA
+cancer_type_abbrev_grouped_HNSC,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_HNSC
+cancer_type_abbrev_grouped_KIRC,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_KIRC
+cancer_type_abbrev_grouped_LGG,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_LGG
+cancer_type_abbrev_grouped_LUAD,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_LUAD
+cancer_type_abbrev_grouped_LUSC,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_LUSC
+cancer_type_abbrev_grouped_OTHER,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_OTHER
+cancer_type_abbrev_grouped_PRAD,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_PRAD
+cancer_type_abbrev_grouped_THCA,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_THCA
+cancer_type_abbrev_grouped_UCEC,categorical,One-hot encoded categorical feature: cancer_type_abbrev_grouped_UCEC
+ajcc_stage_simple_Stage_I,categorical,One-hot encoded categorical feature: ajcc_stage_simple_Stage_I
+ajcc_stage_simple_Stage_II,categorical,One-hot encoded categorical feature: ajcc_stage_simple_Stage_II
+ajcc_stage_simple_Stage_III,categorical,One-hot encoded categorical feature: ajcc_stage_simple_Stage_III
+ajcc_stage_simple_Stage_IV,categorical,One-hot encoded categorical feature: ajcc_stage_simple_Stage_IV
+ajcc_stage_simple_Unknown,categorical,One-hot encoded categorical feature: ajcc_stage_simple_Unknown
+tfidf_pc_0,tfidf_pca,PCA component 0 of TF-IDF (200 → 30)
+tfidf_pc_1,tfidf_pca,PCA component 1 of TF-IDF (200 → 30)
+tfidf_pc_2,tfidf_pca,PCA component 2 of TF-IDF (200 → 30)
+tfidf_pc_3,tfidf_pca,PCA component 3 of TF-IDF (200 → 30)
+tfidf_pc_4,tfidf_pca,PCA component 4 of TF-IDF (200 → 30)
+tfidf_pc_5,tfidf_pca,PCA component 5 of TF-IDF (200 → 30)
+tfidf_pc_6,tfidf_pca,PCA component 6 of TF-IDF (200 → 30)
+tfidf_pc_7,tfidf_pca,PCA component 7 of TF-IDF (200 → 30)
+tfidf_pc_8,tfidf_pca,PCA component 8 of TF-IDF (200 → 30)
+tfidf_pc_9,tfidf_pca,PCA component 9 of TF-IDF (200 → 30)
+tfidf_pc_10,tfidf_pca,PCA component 10 of TF-IDF (200 → 30)
+tfidf_pc_11,tfidf_pca,PCA component 11 of TF-IDF (200 → 30)
+tfidf_pc_12,tfidf_pca,PCA component 12 of TF-IDF (200 → 30)
+tfidf_pc_13,tfidf_pca,PCA component 13 of TF-IDF (200 → 30)
+tfidf_pc_14,tfidf_pca,PCA component 14 of TF-IDF (200 → 30)
+tfidf_pc_15,tfidf_pca,PCA component 15 of TF-IDF (200 → 30)
+tfidf_pc_16,tfidf_pca,PCA component 16 of TF-IDF (200 → 30)
+tfidf_pc_17,tfidf_pca,PCA component 17 of TF-IDF (200 → 30)
+tfidf_pc_18,tfidf_pca,PCA component 18 of TF-IDF (200 → 30)
+tfidf_pc_19,tfidf_pca,PCA component 19 of TF-IDF (200 → 30)
+tfidf_pc_20,tfidf_pca,PCA component 20 of TF-IDF (200 → 30)
+tfidf_pc_21,tfidf_pca,PCA component 21 of TF-IDF (200 → 30)
+tfidf_pc_22,tfidf_pca,PCA component 22 of TF-IDF (200 → 30)
+tfidf_pc_23,tfidf_pca,PCA component 23 of TF-IDF (200 → 30)
+tfidf_pc_24,tfidf_pca,PCA component 24 of TF-IDF (200 → 30)
+tfidf_pc_25,tfidf_pca,PCA component 25 of TF-IDF (200 → 30)
+tfidf_pc_26,tfidf_pca,PCA component 26 of TF-IDF (200 → 30)
+tfidf_pc_27,tfidf_pca,PCA component 27 of TF-IDF (200 → 30)
+tfidf_pc_28,tfidf_pca,PCA component 28 of TF-IDF (200 → 30)
+tfidf_pc_29,tfidf_pca,PCA component 29 of TF-IDF (200 → 30)
+img_pc_0,image_pca,PCA component 0 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_1,image_pca,PCA component 1 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_2,image_pca,PCA component 2 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_3,image_pca,PCA component 3 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_4,image_pca,PCA component 4 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_5,image_pca,PCA component 5 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_6,image_pca,PCA component 6 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_7,image_pca,PCA component 7 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_8,image_pca,PCA component 8 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_9,image_pca,PCA component 9 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_10,image_pca,PCA component 10 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_11,image_pca,PCA component 11 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_12,image_pca,PCA component 12 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_13,image_pca,PCA component 13 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_14,image_pca,PCA component 14 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_15,image_pca,PCA component 15 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_16,image_pca,PCA component 16 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_17,image_pca,PCA component 17 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_18,image_pca,PCA component 18 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_19,image_pca,PCA component 19 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_20,image_pca,PCA component 20 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_21,image_pca,PCA component 21 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_22,image_pca,PCA component 22 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_23,image_pca,PCA component 23 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_24,image_pca,PCA component 24 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_25,image_pca,PCA component 25 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_26,image_pca,PCA component 26 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_27,image_pca,PCA component 27 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_28,image_pca,PCA component 28 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_29,image_pca,PCA component 29 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_30,image_pca,PCA component 30 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_31,image_pca,PCA component 31 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_32,image_pca,PCA component 32 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_33,image_pca,PCA component 33 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_34,image_pca,PCA component 34 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_35,image_pca,PCA component 35 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_36,image_pca,PCA component 36 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_37,image_pca,PCA component 37 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_38,image_pca,PCA component 38 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_39,image_pca,PCA component 39 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_40,image_pca,PCA component 40 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_41,image_pca,PCA component 41 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_42,image_pca,PCA component 42 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_43,image_pca,PCA component 43 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_44,image_pca,PCA component 44 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_45,image_pca,PCA component 45 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_46,image_pca,PCA component 46 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_47,image_pca,PCA component 47 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_48,image_pca,PCA component 48 of ABMIL attention-pooled embeddings (512 → 50)
+img_pc_49,image_pca,PCA component 49 of ABMIL attention-pooled embeddings (512 → 50)

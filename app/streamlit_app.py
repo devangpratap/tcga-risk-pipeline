@@ -164,10 +164,13 @@ PLOTLY_LAYOUT = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="Inter, sans-serif", color=COLORS["text"], size=12),
     margin=dict(l=40, r=20, t=40, b=40),
+    hoverlabel=dict(bgcolor="#1a1a2e", font_size=12),
+)
+
+PLOTLY_AXES = dict(
     xaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"]),
     yaxis=dict(gridcolor=COLORS["grid"], zerolinecolor=COLORS["grid"]),
     legend=dict(bgcolor="rgba(0,0,0,0)"),
-    hoverlabel=dict(bgcolor="#1a1a2e", font_size=12),
 )
 
 RISK_COLORS = {"high_risk": COLORS["high_risk"], "low_risk": COLORS["low_risk"], "ambiguous": COLORS["ambiguous"]}
@@ -206,11 +209,6 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.markdown(
-        "<p style='font-size:0.7rem; color:#555;'>Built by Devang Pratap Singh<br>"
-        "Florida Institute of Technology</p>",
-        unsafe_allow_html=True,
-    )
 
 # Apply filter
 if selected_cancer != "All":
@@ -237,7 +235,9 @@ n_high = (risk_filtered["risk_label"] == "high_risk").sum()
 n_low = (risk_filtered["risk_label"] == "low_risk").sum()
 pct_high = n_high / max(len(labeled_f), 1) * 100
 
-cols = st.columns(4)
+n_ambiguous = (risk_filtered["risk_label"] == "ambiguous").sum()
+
+cols = st.columns(5)
 with cols[0]:
     st.markdown(metric_card(f"{n_patients:,}", "Total Patients"), unsafe_allow_html=True)
 with cols[1]:
@@ -246,6 +246,8 @@ with cols[2]:
     st.markdown(metric_card(f"{n_high:,}", "High Risk"), unsafe_allow_html=True)
 with cols[3]:
     st.markdown(metric_card(f"{n_low:,}", "Low Risk"), unsafe_allow_html=True)
+with cols[4]:
+    st.markdown(metric_card(f"{n_ambiguous:,}", "Ambiguous (excluded)"), unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -298,12 +300,12 @@ with tab1:
     with col_b:
         st.markdown("#### Model Predictions")
         if len(patient_preds) > 0:
-            pred_display = patient_preds[["model_name", "predicted_label", "probability_high_risk"]].copy()
-            pred_display.columns = ["Model", "Prediction", "P(High Risk)"]
-            pred_display["P(High Risk)"] = pred_display["P(High Risk)"].apply(
+            pred_display = patient_preds[["model_name", "predicted_label", "prediction_confidence"]].copy()
+            pred_display.columns = ["Model", "Prediction", "Confidence"]
+            pred_display["Confidence"] = pred_display["Confidence"].apply(
                 lambda x: f"{float(x):.1%}" if pd.notna(x) else "N/A"
             )
-            st.dataframe(pred_display, hide_index=True, use_container_width=True)
+            st.dataframe(pred_display, hide_index=True, width="stretch")
         else:
             st.info("No predictions available for this patient (ambiguous label — excluded from training).")
 
@@ -335,8 +337,9 @@ with tab1:
                 line=dict(color=COLORS["accent1"], width=2),
                 name=selected_patient,
             ))
+            radar_layout = {k: v for k, v in PLOTLY_LAYOUT.items() if k != "margin"}
             fig_radar.update_layout(
-                **PLOTLY_LAYOUT,
+                **radar_layout,
                 polar=dict(
                     bgcolor="rgba(0,0,0,0)",
                     radialaxis=dict(visible=True, range=[0, 1], gridcolor=COLORS["grid"], tickfont=dict(size=9)),
@@ -346,7 +349,7 @@ with tab1:
                 height=320,
                 margin=dict(l=60, r=60, t=30, b=30),
             )
-            st.plotly_chart(fig_radar, use_container_width=True)
+            st.plotly_chart(fig_radar, width="stretch")
 
 
 # ========================== TAB 2: Cohort Analytics ========================
@@ -374,7 +377,7 @@ with tab2:
         )
         fig_dist.update_layout(**PLOTLY_LAYOUT, height=400, xaxis_title="", yaxis_title="Patients",
                                xaxis_tickangle=-45, legend_title="")
-        st.plotly_chart(fig_dist, use_container_width=True)
+        st.plotly_chart(fig_dist, width="stretch")
 
     # --- Survival distribution ---
     with col2:
@@ -392,7 +395,7 @@ with tab2:
         )
         fig_surv.update_layout(**PLOTLY_LAYOUT, height=400, xaxis_title="OS Days", yaxis_title="Count",
                                legend_title="", barmode="overlay")
-        st.plotly_chart(fig_surv, use_container_width=True)
+        st.plotly_chart(fig_surv, width="stretch")
 
     col3, col4 = st.columns(2)
 
@@ -413,7 +416,7 @@ with tab2:
                 color_discrete_sequence=[COLORS["accent2"]],
             )
             fig_stage.update_layout(**PLOTLY_LAYOUT, height=300, xaxis_title="", yaxis_title="")
-            st.plotly_chart(fig_stage, use_container_width=True)
+            st.plotly_chart(fig_stage, width="stretch")
 
     # --- Age distribution by risk ---
     with col4:
@@ -426,7 +429,7 @@ with tab2:
             )
             fig_age.update_layout(**PLOTLY_LAYOUT, height=300, xaxis_title="", yaxis_title="Age (scaled)",
                                   showlegend=False)
-            st.plotly_chart(fig_age, use_container_width=True)
+            st.plotly_chart(fig_age, width="stretch")
 
     # --- Model comparison heatmap ---
     st.markdown("#### Model Performance Comparison")
@@ -452,10 +455,10 @@ with tab2:
         fig_heatmap.update_layout(
             **PLOTLY_LAYOUT,
             height=max(250, len(pivot_display) * 35 + 100),
-            xaxis=dict(side="top", tickangle=-30),
-            yaxis=dict(autorange="reversed"),
+            xaxis=dict(side="top", tickangle=-30, gridcolor=COLORS["grid"]),
+            yaxis=dict(autorange="reversed", gridcolor=COLORS["grid"]),
         )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
+        st.plotly_chart(fig_heatmap, width="stretch")
 
     # --- Embedding space ---
     st.markdown("#### Feature Space (Image + Text PCA)")
@@ -486,7 +489,7 @@ with tab2:
             ),
             legend_title="",
         )
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width="stretch")
 
 
 # ========================== TAB 3: Pipeline ================================
@@ -528,40 +531,21 @@ with tab3:
         fig_feat.update_layout(**PLOTLY_LAYOUT, height=350, showlegend=True,
                                legend=dict(orientation="h", yanchor="bottom", y=-0.15))
         fig_feat.update_traces(textinfo="label+value", textfont_size=11)
-        st.plotly_chart(fig_feat, use_container_width=True)
+        st.plotly_chart(fig_feat, width="stretch")
 
     with col_p2:
-        st.markdown("#### Data Quality by Cancer Type")
-        if "metric_name" in dq.columns and "cancer_type" in dq.columns:
-            null_dq = dq[dq["metric_name"].str.contains("null", case=False, na=False)].copy()
-            if len(null_dq) > 0:
-                null_dq["metric_value"] = pd.to_numeric(null_dq["metric_value"], errors="coerce")
-                null_dq = null_dq.sort_values("metric_value", ascending=False).head(20)
-                fig_dq = px.bar(
-                    null_dq, x="metric_value", y="cancer_type", color="metric_name",
-                    orientation="h",
-                    color_discrete_sequence=[COLORS["accent1"], COLORS["accent2"], COLORS["accent3"]],
-                )
-                fig_dq.update_layout(**PLOTLY_LAYOUT, height=350, xaxis_title="Null Rate",
-                                     yaxis_title="", legend_title="")
-                st.plotly_chart(fig_dq, use_container_width=True)
-            else:
-                # Show join coverage instead
-                join_dq = dq[dq["metric_name"].str.contains("join|coverage|count", case=False, na=False)].copy()
-                if len(join_dq) > 0:
-                    join_dq["metric_value"] = pd.to_numeric(join_dq["metric_value"], errors="coerce")
-                    fig_dq = px.bar(
-                        join_dq.head(20), x="metric_value", y="cancer_type", color="metric_name",
-                        orientation="h",
-                        color_discrete_sequence=[COLORS["accent1"], COLORS["accent2"]],
-                    )
-                    fig_dq.update_layout(**PLOTLY_LAYOUT, height=350, xaxis_title="Value",
-                                         yaxis_title="", legend_title="")
-                    st.plotly_chart(fig_dq, use_container_width=True)
-                else:
-                    st.dataframe(dq.head(20), use_container_width=True)
-        else:
-            st.dataframe(dq.head(20), use_container_width=True)
+        st.markdown("#### Data Quality Summary")
+        # dq columns: metric_type, dimension, value, count
+        dq["count"] = pd.to_numeric(dq["count"], errors="coerce")
+        dq_top = dq.sort_values("count", ascending=False).head(20)
+        fig_dq = px.bar(
+            dq_top, x="count", y="dimension", color="metric_type",
+            orientation="h",
+            color_discrete_sequence=[COLORS["accent1"], COLORS["accent2"], COLORS["accent3"]],
+        )
+        fig_dq.update_layout(**PLOTLY_LAYOUT, height=350, xaxis_title="Count",
+                             yaxis_title="", legend_title="")
+        st.plotly_chart(fig_dq, width="stretch")
 
     # Modality breakdown
     st.markdown("#### Multimodal Fusion Pipeline")
