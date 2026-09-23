@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TCGA Risk Pipeline</title>
+<meta name="description" content="Multimodal cancer risk prediction across 6,242 TCGA patients and 31 cancer types, fusing histopathology images, pathology reports and clinical records.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%A7%AC</text></svg>">
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border:    #e2e2dd;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #76756f;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --ord-1: #86b6ef;
+  --ord-2: #3987e5;
+  --ord-3: #104281;
+  --grid: #e8e8e3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-0: #121211;
+    --surface-1: #1a1a19;
+    --border:    #2e2e2c;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #94938a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --ord-1: #9ec5f4;
+    --ord-2: #3987e5;
+    --ord-3: #184f95;
+    --grid: #2a2a28;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #121211;
+  --surface-1: #1a1a19;
+  --border:    #2e2e2c;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #94938a;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --ord-1: #9ec5f4;
+  --ord-2: #3987e5;
+  --ord-3: #184f95;
+  --grid: #2a2a28;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font: 400 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 16px 72px; }
+header { padding: 56px 0 28px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.1; letter-spacing: -0.025em; margin: 0 0 12px; font-weight: 650; }
+.lede { font-size: 17px; color: var(--text-secondary); max-width: 68ch; margin: 0 0 20px; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.links a {
+  display: inline-block; padding: 7px 14px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-1); color: var(--text-primary); text-decoration: none; font-size: 14px; font-weight: 500;
+}
+.links a:hover { border-color: var(--series-1); color: var(--series-1); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 8px 0 40px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.tile .val { font-size: 32px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .lab { font-size: 13px; color: var(--text-secondary); margin-top: 6px; }
+.tile .sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+section { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px 18px; margin-bottom: 20px; }
+h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+.note { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 18px; max-width: 76ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 0 0 14px; font-size: 13px; color: var(--text-secondary); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+.tick { fill: var(--text-muted); font-size: 11.5px; }
+.cat { fill: var(--text-secondary); font-size: 12.5px; }
+.val-lab { fill: var(--text-primary); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gridline { stroke: var(--grid); stroke-width: 1; }
+.mark { transition: opacity .12s ease; cursor: default; }
+.dim { opacity: .35; }
+details { margin-top: 14px; }
+summary { font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13px; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 500; }
+footer { color: var(--text-muted); font-size: 13px; padding-top: 8px; }
+footer a { color: var(--text-secondary); }
+#tip {
+  position: fixed; pointer-events: none; opacity: 0; transition: opacity .1s ease;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 11px; font-size: 12.5px; color: var(--text-primary);
+  box-shadow: 0 4px 16px rgba(0,0,0,.14); z-index: 9; max-width: 260px;
+}
+#tip b { font-weight: 600; }
+#tip .r { color: var(--text-secondary); }
+@media (max-width: 560px) { header { padding-top: 32px; } section { padding: 18px 14px 14px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>TCGA Risk Pipeline</h1>
+  <p class="lede">Multimodal cancer risk prediction across <b>6,242 patients</b> and <b>31 cancer types</b>. Histopathology slide features, pathology report text and clinical records are cleaned and joined on a medallion architecture in Databricks, then fused into one risk model. Every number on this page is read from the pipeline's own exported tables.</p>
+  <div class="links">
+    <a href="https://github.com/devangpratap/tcga-risk-pipeline">Source on GitHub</a>
+    <a href="https://github.com/devangpratap/tcga-risk-pipeline#readme">Pipeline README</a>
+    <a href="https://github.com/devangpratap/tcga-risk-pipeline/blob/main/app/streamlit_app.py">Streamlit dashboard</a>
+  </div>
+</header>
+
+<div class="tiles" id="tiles"></div>
+
+<section>
+  <h2>Model performance</h2>
+  <p class="note">Balanced accuracy on the held-out test split, which is the metric that matters here because high-risk patients are the minority class (585 of 6,242). One model trained across all cancer types beats every single-cancer-type model, so the shared signal across tumours outweighs the smaller per-type sample.</p>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--series-1)"></i> Trained on all cancer types</span>
+    <span><i class="swatch" style="background:var(--series-2)"></i> Trained on one cancer type</span>
+  </div>
+  <svg id="models" aria-label="Balanced accuracy by model"></svg>
+  <details><summary>Show table</summary><div id="models-table"></div></details>
+</section>
+
+<section>
+  <h2>Risk labels by cancer type</h2>
+  <p class="note">Patients are labelled from overall-survival percentiles within their own cancer type: the shortest third survive to the 33rd percentile (high risk), the longest third past the 67th (low risk), and everyone in between is ambiguous. Censored patients who have not reached the threshold stay ambiguous rather than being guessed at, which is why that band dominates. Twelve largest cohorts shown.</p>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--ord-3)"></i> High risk</span>
+    <span><i class="swatch" style="background:var(--ord-2)"></i> Ambiguous</span>
+    <span><i class="swatch" style="background:var(--ord-1)"></i> Low risk</span>
+  </div>
+  <svg id="types" aria-label="Risk label distribution by cancer type"></svg>
+  <details><summary>Show table</summary><div id="types-table"></div></details>
+</section>
+
+<section>
+  <h2>Where the cohort comes from</h2>
+  <p class="note">The three sources cover different patients. Joining on patients present in all three is what sets the usable cohort size, and it is the single biggest constraint in the pipeline.</p>
+  <svg id="sources" aria-label="Patient counts per source and after joining"></svg>
+</section>
+
+<footer>
+  Data: <a href="https://portal.gdc.cancer.gov/">TCGA</a> via the GDC, exported by the pipeline's Databricks workflow.
+  Built by <a href="https://github.com/devangpratap">Devang Pratap Singh</a>.
+  Research demo only, not a clinical tool.
+</footer>
+</div>
+<div id="tip" role="status"></div>
+
+<script>
+const tip = document.getElementById('tip');
+function showTip(e, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = e.clientY - h - pad;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip() { tip.style.opacity = 0; }
+const fmt = n => n.toLocaleString('en-US');
+const pct = v => (v * 100).toFixed(1) + '%';
+const SVG = 'http://www.w3.org/2000/svg';
+const el = (n, a) => { const x = document.createElementNS(SVG, n); for (const k in a) x.setAttribute(k, a[k]); return x; };
+
+function bindHover(node, group, html) {
+  node.addEventListener('mousemove', e => {
+    showTip(e, html);
+    group.forEach(o => o.classList.toggle('dim', o !== node));
+  });
+  node.addEventListener('mouseleave', () => { hideTip(); group.forEach(o => o.classList.remove('dim')); });
+}
+
+fetch('data.json').then(r => r.json()).then(d => {
+  /* ---- stat tiles ---- */
+  const tiles = [
+    { val: fmt(d.patients), lab: 'Patients in the joined cohort', sub: 'present in all three sources' },
+    { val: d.cancer_types, lab: 'Cancer types', sub: 'labelled within their own type' },
+    { val: pct(d.best_bacc), lab: 'Balanced accuracy', sub: 'held-out test split' },
+    { val: d.features, lab: 'Model features', sub: '50 image + 30 text + 21 clinical' },
+  ];
+  document.getElementById('tiles').innerHTML = tiles.map(t =>
+    `<div class="tile"><div class="val">${t.val}</div><div class="lab">${t.lab}</div><div class="sub">${t.sub}</div></div>`).join('');
+
+  /* ---- chart 1: model comparison ---- */
+  (() => {
+    const rows = d.models.slice().sort((a, b) => b.bacc - a.bacc);
+    const W = 940, rowH = 34, padL = 190, padR = 64, top = 26;
+    const H = top + rows.length * rowH + 30;
+    const svg = document.getElementById('models');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const x = v => padL + (v / 0.8) * (W - padL - padR);
+    [0, 0.2, 0.4, 0.5, 0.6, 0.8].forEach(t => {
+      svg.appendChild(el('line', { x1: x(t), x2: x(t), y1: top - 8, y2: top + rows.length * rowH, class: 'gridline' }));
+      const lab = el('text', { x: x(t), y: H - 12, class: 'tick', 'text-anchor': 'middle' });
+      lab.textContent = pct(t); svg.appendChild(lab);
+    });
+    const marks = [];
+    rows.forEach((r, i) => {
+      const y = top + i * rowH, h = 20;
+      const color = r.group === 'All cancer types' ? 'var(--series-1)' : 'var(--series-2)';
+      const name = el('text', { x: padL - 12, y: y + h - 5, class: 'cat', 'text-anchor': 'end' });
+      name.textContent = r.name; svg.appendChild(name);
+      const bar = el('rect', { x: x(0), y: y, width: Math.max(2, x(r.bacc) - x(0)), height: h, rx: 4, fill: color, class: 'mark' });
+      // square off the baseline end
+      svg.appendChild(bar);
+      svg.appendChild(el('rect', { x: x(0), y: y, width: 5, height: h, fill: color, class: 'mark', 'pointer-events': 'none' }));
+      const v = el('text', { x: x(r.bacc) + 9, y: y + h - 5, class: 'val-lab' });
+      v.textContent = pct(r.bacc); svg.appendChild(v);
+      marks.push(bar);
+      bindHover(bar, marks, `<b>${r.name}</b><br>${r.group === 'All cancer types' ? 'All cancer types' : 'Single cancer type'}<br>
+        <span class="r">Balanced accuracy</span> ${pct(r.bacc)}<br>
+        <span class="r">Accuracy</span> ${pct(r.acc)}<br>
+        <span class="r">High-risk recall</span> ${pct(r.recall_high)}<br>
+        <span class="r">High-risk F1</span> ${pct(r.f1_high)}`);
+    });
+    // 50% = coin flip, drawn over the bars so it stays readable
+    const ref = el('line', { x1: x(0.5), x2: x(0.5), y1: top - 8, y2: top + rows.length * rowH,
+      stroke: 'var(--text-muted)', 'stroke-width': 1, 'stroke-dasharray': '4 4', 'pointer-events': 'none' });
+    svg.appendChild(ref);
+    const refLab = el('text', { x: x(0.5), y: top - 14, class: 'tick', 'text-anchor': 'middle' });
+    refLab.textContent = 'chance (50%)'; svg.appendChild(refLab);
+    document.getElementById('models-table').innerHTML =
+      `<table><tr><th>Model</th><th>Scope</th><th>Balanced acc.</th><th>Accuracy</th><th>High-risk recall</th><th>High-risk F1</th></tr>` +
+      rows.map(r => `<tr><td>${r.name}</td><td>${r.group}</td><td>${pct(r.bacc)}</td><td>${pct(r.acc)}</td><td>${pct(r.recall_high)}</td><td>${pct(r.f1_high)}</td></tr>`).join('') + `</table>`;
+  })();
+
+  /* ---- chart 2: risk labels by cancer type (stacked) ---- */
+  (() => {
+    const rows = d.types, W = 940, rowH = 32, padL = 84, padR = 74, top = 10;
+    const H = top + rows.length * rowH + 28;
+    const svg = document.getElementById('types');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const max = Math.max(...rows.map(r => r.total));
+    const x = v => padL + (v / max) * (W - padL - padR);
+    const marks = [];
+    rows.forEach((r, i) => {
+      const y = top + i * rowH, h = 20;
+      const lab = el('text', { x: padL - 12, y: y + h - 5, class: 'cat', 'text-anchor': 'end' });
+      lab.textContent = r.abbrev; svg.appendChild(lab);
+      let cursor = 0;
+      [['high', 'var(--ord-3)', 'High risk'], ['ambiguous', 'var(--ord-2)', 'Ambiguous'], ['low', 'var(--ord-1)', 'Low risk']]
+        .forEach(([key, color, label], si) => {
+          const wpx = x(r[key]) - x(0);
+          if (wpx <= 0) { cursor += r[key]; return; }
+          const seg = el('rect', {
+            x: x(cursor) + (si ? 2 : 0), y: y, width: Math.max(1, wpx - (si ? 2 : 0)), height: h,
+            fill: color, class: 'mark',
+            rx: si === 2 ? 4 : 0,
+          });
+          svg.appendChild(seg);
+          marks.push(seg);
+          bindHover(seg, marks, `<b>${r.name}</b> (${r.abbrev})<br>
+            <span class="r">${label}</span> ${fmt(r[key])} of ${fmt(r.total)} (${((r[key] / r.total) * 100).toFixed(0)}%)`);
+          cursor += r[key];
+        });
+      const tot = el('text', { x: x(r.total) + 9, y: y + h - 5, class: 'val-lab' });
+      tot.textContent = fmt(r.total); svg.appendChild(tot);
+    });
+    document.getElementById('types-table').innerHTML =
+      `<table><tr><th>Cancer type</th><th>Patients</th><th>High risk</th><th>Ambiguous</th><th>Low risk</th></tr>` +
+      rows.map(r => `<tr><td>${r.name} (${r.abbrev})</td><td>${fmt(r.total)}</td><td>${fmt(r.high)}</td><td>${fmt(r.ambiguous)}</td><td>${fmt(r.low)}</td></tr>`).join('') + `</table>`;
+  })();
+
+  /* ---- chart 3: sources ---- */
+  (() => {
+    const rows = d.sources, W = 940, rowH = 44, padL = 300, padR = 80, top = 8;
+    const H = top + rows.length * rowH + 10;
+    const svg = document.getElementById('sources');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const max = Math.max(...rows.map(r => r.n));
+    const x = v => padL + (v / max) * (W - padL - padR);
+    const ramp = ['var(--ord-1)', 'var(--ord-2)', 'var(--ord-2)', 'var(--ord-3)'];
+    const marks = [];
+    rows.forEach((r, i) => {
+      const y = top + i * rowH, h = 22;
+      const lab = el('text', { x: padL - 12, y: y + h - 6, class: 'cat', 'text-anchor': 'end' });
+      lab.textContent = r.label; svg.appendChild(lab);
+      const bar = el('rect', { x: x(0), y: y, width: x(r.n) - x(0), height: h, rx: 4, fill: ramp[i], class: 'mark' });
+      svg.appendChild(bar);
+      svg.appendChild(el('rect', { x: x(0), y: y, width: 5, height: h, fill: ramp[i], 'pointer-events': 'none' }));
+      const v = el('text', { x: x(r.n) + 9, y: y + h - 6, class: 'val-lab' });
+      v.textContent = fmt(r.n); svg.appendChild(v);
+      marks.push(bar);
+      const share = i === rows.length - 1 ? `<br><span class="r">Kept</span> ${((r.n / max) * 100).toFixed(0)}% of the clinical cohort` : '';
+      bindHover(bar, marks, `<b>${r.label}</b><br><span class="r">Patients</span> ${fmt(r.n)}${share}`);
+    });
+  })();
+});
+</script>
+</body>
+</html>

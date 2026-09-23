@@ -1,0 +1,207 @@
+{
+ "patients": 6242,
+ "cancer_types": 31,
+ "best_bacc": 0.6953,
+ "features": 101,
+ "labels": {
+  "ambiguous": 3342,
+  "high_risk": 585,
+  "low_risk": 2315
+ },
+ "models": [
+  {
+   "name": "LogisticRegression",
+   "group": "All cancer types",
+   "bacc": 0.6953,
+   "f1_high": 0.4858,
+   "recall_high": 0.6704,
+   "acc": 0.71
+  },
+  {
+   "name": "MLP_3Layer",
+   "group": "All cancer types",
+   "bacc": 0.6507,
+   "f1_high": 0.4382,
+   "recall_high": 0.5251,
+   "acc": 0.7249
+  },
+  {
+   "name": "LightGBM",
+   "group": "All cancer types",
+   "bacc": 0.5872,
+   "f1_high": 0.3194,
+   "recall_high": 0.2346,
+   "acc": 0.7957
+  },
+  {
+   "name": "BLCA",
+   "group": "Single cancer type",
+   "bacc": 0.4884,
+   "f1_high": 0.1538,
+   "recall_high": 0.125,
+   "acc": 0.6857
+  },
+  {
+   "name": "GBM",
+   "group": "Single cancer type",
+   "bacc": 0.725,
+   "f1_high": 0.6667,
+   "recall_high": 0.5833,
+   "acc": 0.7407
+  },
+  {
+   "name": "HNSC",
+   "group": "Single cancer type",
+   "bacc": 0.5855,
+   "f1_high": 0.3529,
+   "recall_high": 0.3,
+   "acc": 0.7317
+  },
+  {
+   "name": "KIRC",
+   "group": "Single cancer type",
+   "bacc": 0.6362,
+   "f1_high": 0.4,
+   "recall_high": 0.375,
+   "acc": 0.8085
+  },
+  {
+   "name": "LUAD",
+   "group": "Single cancer type",
+   "bacc": 0.4389,
+   "f1_high": 0.1176,
+   "recall_high": 0.1,
+   "acc": 0.5946
+  },
+  {
+   "name": "LUSC",
+   "group": "Single cancer type",
+   "bacc": 0.6755,
+   "f1_high": 0.5263,
+   "recall_high": 0.4545,
+   "acc": 0.775
+  }
+ ],
+ "types": [
+  {
+   "abbrev": "BRCA",
+   "name": "Breast invasive carcinoma",
+   "total": 689,
+   "high": 33,
+   "ambiguous": 500,
+   "low": 156
+  },
+  {
+   "abbrev": "LGG",
+   "name": "Brain Lower Grade Glioma",
+   "total": 421,
+   "high": 29,
+   "ambiguous": 275,
+   "low": 117
+  },
+  {
+   "abbrev": "LUAD",
+   "name": "Lung adenocarcinoma",
+   "total": 405,
+   "high": 48,
+   "ambiguous": 224,
+   "low": 133
+  },
+  {
+   "abbrev": "LUSC",
+   "name": "Lung squamous cell carcinoma",
+   "total": 401,
+   "high": 56,
+   "ambiguous": 201,
+   "low": 144
+  },
+  {
+   "abbrev": "UCEC",
+   "name": "Uterine Corpus Endometrial Carcinoma",
+   "total": 379,
+   "high": 20,
+   "ambiguous": 174,
+   "low": 185
+  },
+  {
+   "abbrev": "KIRC",
+   "name": "Kidney renal clear cell carcinoma",
+   "total": 377,
+   "high": 42,
+   "ambiguous": 144,
+   "low": 191
+  },
+  {
+   "abbrev": "THCA",
+   "name": "Thyroid carcinoma",
+   "total": 355,
+   "high": 4,
+   "ambiguous": 257,
+   "low": 94
+  },
+  {
+   "abbrev": "HNSC",
+   "name": "Head and Neck squamous cell carcinoma",
+   "total": 312,
+   "high": 49,
+   "ambiguous": 110,
+   "low": 153
+  },
+  {
+   "abbrev": "PRAD",
+   "name": "Prostate adenocarcinoma",
+   "total": 276,
+   "high": 1,
+   "ambiguous": 269,
+   "low": 6
+  },
+  {
+   "abbrev": "BLCA",
+   "name": "Bladder Urothelial Carcinoma",
+   "total": 264,
+   "high": 41,
+   "ambiguous": 93,
+   "low": 130
+  },
+  {
+   "abbrev": "LIHC",
+   "name": "Liver hepatocellular carcinoma",
+   "total": 246,
+   "high": 27,
+   "ambiguous": 126,
+   "low": 93
+  },
+  {
+   "abbrev": "GBM",
+   "name": "Glioblastoma multiforme",
+   "total": 225,
+   "high": 58,
+   "ambiguous": 94,
+   "low": 73
+  }
+ ],
+ "sources": [
+  {
+   "label": "Clinical outcomes (TCGA-CDR)",
+   "n": 11160
+  },
+  {
+   "label": "Pathology reports",
+   "n": 9523
+  },
+  {
+   "label": "Histopathology slide metadata",
+   "n": 7175
+  },
+  {
+   "label": "Joined cohort (all three)",
+   "n": 6242
+  }
+ ],
+ "feature_types": {
+  "numerical": 3,
+  "categorical": 18,
+  "tfidf_pca": 30,
+  "image_pca": 50
+ }
+}
