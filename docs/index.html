@@ -106,7 +106,15 @@ footer a { color: var(--text-secondary); }
 }
 #tip b { font-weight: 600; }
 #tip .r { color: var(--text-secondary); }
-@media (max-width: 560px) { header { padding-top: 32px; } section { padding: 18px 14px 14px; } }
+@media (max-width: 720px) {
+  header { padding-top: 32px; }
+  section { padding: 18px 14px 14px; }
+  /* shrinking the viewBox to phone width makes the labels unreadable, so keep the
+     chart at a legible size and let it scroll sideways instead */
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .scroll svg { min-width: 620px; }
+  .scroll::after { content: "scroll \2192"; display: block; font-size: 11px; color: var(--text-muted); text-align: right; }
+}
 </style>
 </head>
 <body>
@@ -130,7 +138,7 @@ footer a { color: var(--text-secondary); }
     <span><i class="swatch" style="background:var(--series-1)"></i> Trained on all cancer types</span>
     <span><i class="swatch" style="background:var(--series-2)"></i> Trained on one cancer type</span>
   </div>
-  <svg id="models" aria-label="Balanced accuracy by model"></svg>
+  <div class="scroll"><svg id="models" aria-label="Balanced accuracy by model"></svg></div>
   <details><summary>Show table</summary><div id="models-table"></div></details>
 </section>
 
@@ -142,14 +150,14 @@ footer a { color: var(--text-secondary); }
     <span><i class="swatch" style="background:var(--ord-2)"></i> Ambiguous</span>
     <span><i class="swatch" style="background:var(--ord-1)"></i> Low risk</span>
   </div>
-  <svg id="types" aria-label="Risk label distribution by cancer type"></svg>
+  <div class="scroll"><svg id="types" aria-label="Risk label distribution by cancer type"></svg></div>
   <details><summary>Show table</summary><div id="types-table"></div></details>
 </section>
 
 <section>
   <h2>Where the cohort comes from</h2>
   <p class="note">The three sources cover different patients. Joining on patients present in all three is what sets the usable cohort size, and it is the single biggest constraint in the pipeline.</p>
-  <svg id="sources" aria-label="Patient counts per source and after joining"></svg>
+  <div class="scroll"><svg id="sources" aria-label="Patient counts per source and after joining"></svg></div>
 </section>
 
 <footer>
